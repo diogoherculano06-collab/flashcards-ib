@@ -1,6 +1,6 @@
 // Service worker: caches the app shell so the app opens and works offline.
 // Supabase requests (other origin) always go to the network; offline data lives in IndexedDB.
-const VERSION = 'ibfc-v1.0.1';
+const VERSION = 'ibfc-v1.0.2';
 const SHELL = [
   './',
   './index.html',

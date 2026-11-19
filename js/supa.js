@@ -5,7 +5,7 @@ export const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true, // tapping the e-mail link returns here with the session in the URL
     storageKey: 'ibfc-auth'
   }
 });

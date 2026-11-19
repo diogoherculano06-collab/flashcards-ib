@@ -141,7 +141,7 @@ function viewLogin() {
       </form>`
     : `<form data-form="code">
         <p>Enviamos um e-mail para <strong>${esc(L.email)}</strong>.</p>
-        <p class="muted small">Copie o link do botão do e-mail (no celular: toque e segure → Copiar link) e cole abaixo. Se o e-mail tiver um código de 6 dígitos, digite o código.</p>
+        <p class="muted small">No computador ou no Android: abra o e-mail e toque no botão. No iPhone com o app instalado: toque e segure o botão → Copiar link, e cole abaixo (assim o login fica dentro do app). Se o e-mail tiver um código de 6 dígitos, digite o código.</p>
         <label class="field"><span>Link ou código</span>
           <input type="text" name="code" required autocomplete="one-time-code" autocapitalize="off" spellcheck="false" placeholder="https://… ou 123456"></label>
         ${msg}
@@ -559,14 +559,7 @@ async function onSubmit(e) {
     L.busy = true; L.msg = ''; render();
     try {
       await auth.verifyCode(L.email, code);
-      S.bootMsg = 'Baixando seus cards…';
-      go('boot');
-      await sync.syncNow();
-      await loadLocal();
-      L.step = 'email'; L.busy = false; L.msg = '';
-      go('home');
-      const st = sync.getStatus();
-      if (st.state === 'error') toast(esc(st.error), 6000);
+      await finishLogin();
     } catch (err) {
       L.busy = false; L.msg = err.message; L.err = true; render();
     }
@@ -679,6 +672,9 @@ function initTheme() {
 
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
+  // Only reload when an existing worker is replaced (an update), never on the first install:
+  // a reload then could interrupt a login that is arriving from an e-mail link.
+  const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('./sw.js').then((reg) => {
     S.swReg = reg;
     const flag = () => {
@@ -692,7 +688,11 @@ function registerSW() {
     });
   }).catch((err) => console.warn('SW registration failed', err));
   let reloading = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloading) { reloading = true; location.reload(); } });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    location.reload();
+  });
 }
 
 function applyUpdate() {
@@ -723,12 +723,34 @@ async function boot() {
     if (document.visibilityState === 'visible' && navigator.onLine && (await auth.currentUserId())) sync.syncNow();
   });
 
+  // Returning from a tapped e-mail link?
+  const redirect = await auth.handleRedirect();
+  if (redirect?.userId) {
+    await finishLogin();
+    return;
+  }
+  if (redirect?.error) {
+    S.login = { ...S.login, msg: redirect.error, err: true };
+  }
+
   const uid = await auth.currentUserId();
   if (!uid) { go('login'); return; }
   await loadLocal();
   go('home');
   await sync.refreshPending();
   if (navigator.onLine) sync.syncNow();
+}
+
+/** After a successful sign-in: download cards, then open the home screen. */
+async function finishLogin() {
+  S.bootMsg = 'Baixando seus cards…';
+  go('boot');
+  await sync.syncNow();
+  await loadLocal();
+  S.login = { step: 'email', email: '', msg: '', err: false, busy: false };
+  go('home');
+  const st = sync.getStatus();
+  if (st.state === 'error') toast(esc(st.error), 6000);
 }
 
 boot().catch((err) => {
