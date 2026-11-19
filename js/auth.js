@@ -7,7 +7,11 @@ function friendly(e) {
   const m = String(e?.message || '').toLowerCase();
   if (!navigator.onLine) return new Error('Sem conexão. O primeiro login precisa de internet.');
   if (m.includes('database error') || m.includes('signup') || m.includes('not allowed')) return new Error('Este e-mail não está autorizado a entrar.');
-  if (e?.status === 429 || m.includes('rate') || m.includes('security purposes')) return new Error('Muitas tentativas. Espere alguns minutos e tente de novo.');
+  if (e?.code === 'over_email_send_rate_limit' || m.includes('email rate limit')) {
+    return new Error('O limite de e-mails do Supabase gratuito (2 por hora) foi atingido. Tente de novo em até 1 hora — e, se já recebeu um e-mail recente, use o link dele.');
+  }
+  if (m.includes('security purposes')) return new Error('Aguarde 1 minuto antes de pedir outro e-mail.');
+  if (e?.status === 429 || m.includes('rate')) return new Error('Muitas tentativas. Espere alguns minutos e tente de novo.');
   if (m.includes('expired') || m.includes('invalid') || m.includes('token')) return new Error('Código inválido ou expirado. Peça um novo código.');
   return new Error(e?.message || 'Erro inesperado. Tente de novo.');
 }
