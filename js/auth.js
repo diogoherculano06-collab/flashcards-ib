@@ -17,14 +17,40 @@ export async function sendCode(email) {
   if (error) throw friendly(error);
 }
 
-export async function verifyCode(email, token) {
-  const { data, error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+const LINK_TYPES = ['magiclink', 'signup', 'email', 'invite'];
+
+/**
+ * Accepts either the 6-digit code or the full sign-in link copied from the e-mail.
+ * Pasting the link keeps the login inside the installed app (on iPhone, tapping the
+ * link would open Safari instead of the PWA).
+ */
+export function parseLoginInput(input) {
+  const raw = String(input || '').trim();
+  if (/^https?:\/\//i.test(raw) || raw.includes('token=')) {
+    let url;
+    try { url = new URL(raw); } catch (_) { throw new Error('Link inválido. Copie o link inteiro do e-mail.'); }
+    const tokenHash = url.searchParams.get('token') || url.searchParams.get('token_hash');
+    const type = url.searchParams.get('type') || 'magiclink';
+    if (!tokenHash || !LINK_TYPES.includes(type)) throw new Error('Esse link não parece ser o de login. Copie o link do botão do e-mail.');
+    return { tokenHash, type };
+  }
+  const code = raw.replace(/\D/g, '');
+  if (code.length < 6) throw new Error('Digite o código de 6 dígitos ou cole o link do e-mail.');
+  return { code };
+}
+
+export async function verifyCode(email, input) {
+  const parsed = parseLoginInput(input);
+  const { data, error } = parsed.tokenHash
+    ? await sb.auth.verifyOtp({ token_hash: parsed.tokenHash, type: parsed.type })
+    : await sb.auth.verifyOtp({ email, token: parsed.code, type: 'email' });
   if (error) throw friendly(error);
+  if (!data?.user) throw new Error('Não foi possível entrar. Peça um novo e-mail.');
   const uid = data.user.id;
   const previous = await db.getMeta('userId');
   if (previous && previous !== uid) await db.clearAll();
   await db.setMeta('userId', uid);
-  await db.setMeta('email', email);
+  await db.setMeta('email', data.user.email || email);
   return uid;
 }
 

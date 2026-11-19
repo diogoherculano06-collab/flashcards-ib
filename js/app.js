@@ -137,20 +137,21 @@ function viewLogin() {
         <label class="field"><span>E-mail</span>
           <input type="email" name="email" required autocomplete="email" inputmode="email" value="${esc(L.email)}" placeholder="voce@exemplo.com"></label>
         ${msg}
-        <button class="btn primary big" type="submit" ${L.busy ? 'disabled' : ''}>${L.busy ? 'Enviando…' : 'Enviar código'}</button>
+        <button class="btn primary big" type="submit" ${L.busy ? 'disabled' : ''}>${L.busy ? 'Enviando…' : 'Enviar e-mail de acesso'}</button>
       </form>`
     : `<form data-form="code">
-        <p>Enviamos um código de 6 dígitos para <strong>${esc(L.email)}</strong>.</p>
-        <label class="field"><span>Código</span>
-          <input type="text" name="code" required inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" maxlength="10" placeholder="123456"></label>
+        <p>Enviamos um e-mail para <strong>${esc(L.email)}</strong>.</p>
+        <p class="muted small">Copie o link do botão do e-mail (no celular: toque e segure → Copiar link) e cole abaixo. Se o e-mail tiver um código de 6 dígitos, digite o código.</p>
+        <label class="field"><span>Link ou código</span>
+          <input type="text" name="code" required autocomplete="one-time-code" autocapitalize="off" spellcheck="false" placeholder="https://… ou 123456"></label>
         ${msg}
         <button class="btn primary big" type="submit" ${L.busy ? 'disabled' : ''}>${L.busy ? 'Verificando…' : 'Entrar'}</button>
-        <div class="row"><button class="btn link" type="button" data-action="login-resend">Reenviar código</button>
+        <div class="row"><button class="btn link" type="button" data-action="login-resend">Reenviar e-mail</button>
         <button class="btn link" type="button" data-action="login-change">Usar outro e-mail</button></div>
       </form>`;
   return `<main><div class="login panel">
     <h1>IB Flashcards</h1>
-    <p class="muted">Entre com o código enviado por e-mail. Depois do primeiro login, o app funciona sem internet.</p>
+    <p class="muted">Entre pelo e-mail de acesso. Depois do primeiro login, o app funciona sem internet.</p>
     ${body}</div></main>`;
 }
 
@@ -554,7 +555,7 @@ async function onSubmit(e) {
     L.email = form.email.value.trim().toLowerCase();
     await sendLoginCode();
   } else if (form.dataset.form === 'code') {
-    const code = form.code.value.replace(/\D/g, '');
+    const code = form.code.value;
     L.busy = true; L.msg = ''; render();
     try {
       await auth.verifyCode(L.email, code);
@@ -577,7 +578,7 @@ async function sendLoginCode() {
   L.busy = true; L.msg = ''; render();
   try {
     await auth.sendCode(L.email);
-    L.step = 'code'; L.msg = 'Código enviado. Confira sua caixa de entrada (e o spam).'; L.err = false;
+    L.step = 'code'; L.msg = 'E-mail enviado. Confira a caixa de entrada (e o spam).'; L.err = false;
   } catch (err) {
     L.msg = err.message; L.err = true;
   }
